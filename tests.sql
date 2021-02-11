@@ -18,5 +18,6 @@ select book_insert(
                'introduction to algorithms', 'computer science', 50000, 2300, 'educational', current_date, 1
            );
 
-select user_search('\xfb096cba7706d5ba3bddf405ea01c9880308edc86572d0ca463ea50903de584a293e73bbb22af0426ce7e5d3ad87deb7a6982fec4980272296435f87087bb015'
-    , 'saman2000h');
+select user_search(
+               '\xfb096cba7706d5ba3bddf405ea01c9880308edc86572d0ca463ea50903de584a293e73bbb22af0426ce7e5d3ad87deb7a6982fec4980272296435f87087bb015'
+           , 'saman2000h');

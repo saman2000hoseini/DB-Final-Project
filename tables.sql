@@ -1,8 +1,8 @@
--- create database library;
+create database library;
 --
 -- drop table *;
 -- drop type u_type;
--- create type u_type as ENUM ('normal', 'student', 'instructor', 'librarian', 'admin');
+create type u_type as ENUM ('normal', 'student', 'instructor', 'librarian', 'admin');
 
 create table users
 (
@@ -27,7 +27,7 @@ CREATE TABLE publisher
     publisher_website VARCHAR(250)
 );
 
--- create type b_type as ENUM ('normal', 'educational', 'reference');
+create type b_type as ENUM ('normal', 'educational', 'reference');
 
 CREATE TABLE book
 (
@@ -77,7 +77,7 @@ CREATE TABLE borrow
     borrow_duration    int8 default 14,
     borrow_return_date date                           null,
     cost               int                            not null,
-    PRIMARY KEY (user_name, book_title, book_volume, book_edition, borrow_return_date),
+    PRIMARY KEY (user_name, book_title, book_volume, book_edition, borrow_date),
     FOREIGN KEY (book_title, book_volume, book_edition)
         REFERENCES Book (book_title, book_volume, book_edition),
     foreign key (user_name) references users (user_name)
@@ -86,3 +86,18 @@ CREATE TABLE borrow
 
 -- drop table book_author, book;
 -- drop table storage, borrow;
+
+create type u_operation as ENUM ('borrow', 'return');
+
+create type o_result as ENUM ('success', 'returned with delay', 'book not available', 'low credit', 'book does not exists');
+
+create table operation_history
+(
+    id               bigint generated always as identity primary key,
+    user_name        varchar(50) not null,
+    user_operation   u_operation not null,
+    operation_result o_result    not null,
+    operation_time   timestamp default current_timestamp,
+    foreign key (user_name) references users (user_name)
+        ON DELETE CASCADE
+)
