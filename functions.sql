@@ -127,8 +127,8 @@ create or replace function book_insert(
     b_subject VARCHAR(250),
     b_price INT,
     b_pages INT,
-    b_type b_type,
-    published date,
+    b_type varchar,
+    published varchar(50),
     owner bigint,
     b_edition int8 default 1,
     b_volume int8 default 0
@@ -164,7 +164,7 @@ begin
 
     insert into book(book_volume, book_edition, book_title, book_subject, book_price, book_pages, book_type,
                      published_at, publisher)
-    values (b_volume, b_edition, b_title, b_subject, b_price, b_pages, b_type, published, owner);
+    values (b_volume, b_edition, b_title, b_subject, b_price, b_pages, b_type::b_type, published::date, owner);
 
     return 0;
 end
@@ -801,5 +801,48 @@ begin
             return next result;
         end loop;
     return;
+end
+$$;
+
+create or replace function book_author_insert(
+    utoken varchar(512),
+    b_author varchar(80),
+    b_title VARCHAR(250),
+    b_edition int8 default 1,
+    b_volume int8 default 0
+)
+    returns int4
+    language plpgsql
+as
+$$
+begin
+    if utoken is null or b_title is null or b_author is null then
+        return 1;
+    end if;
+
+    perform user_name
+    from users
+    where token = utoken
+      and expires_at >= current_timestamp
+      and (user_type = 'admin'
+        or user_type = 'librarian');
+    if not found then
+        return 2;
+    end if;
+
+    perform book_title, book_volume, book_edition
+    from book_author
+    where book_title = b_title
+      and book_volume = b_volume
+      and book_edition = b_edition
+      and author = b_author;
+    if found then
+        return 3;
+    end if;
+
+    insert into book_author(book_title, book_volume, book_edition, author)
+    values (b_title, b_volume, b_edition, b_author);
+
+    return 0;
 end
 $$;
