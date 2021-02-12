@@ -270,12 +270,16 @@ begin
     where book_title = new.book_title
       and book_volume = new.book_volume
       and book_edition = new.book_edition;
+
+    insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+    values (new.user_name, new.book_title, new.book_volume, new.book_edition, 'borrow', 'success');
+
     return new;
 end
 $$;
 
 create trigger update_on_borrow
-    after insert
+    before insert
     on borrow
     for each row
 execute procedure update_on_borrow();
@@ -452,26 +456,38 @@ begin
       and book_volume = b_volume
       and book_edition = b_edition;
     if not found then
+        insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+        values (uname, b_title, b_volume, b_edition, 'borrow', 'book does not exists');
         return 4;
     end if;
 
     if amount < 1 then
+        insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+        values (uname, b_title, b_volume, b_edition, 'borrow', 'book not available');
         return 5;
     end if;
 
     if utype = 'normal' then
         if btype = 'educational' or btype = 'reference' then
+            insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation,
+                                       operation_result)
+            values (uname, b_title, b_volume, b_edition, 'borrow', 'unauthorized');
             return 6;
         end if;
     end if;
 
     if utype = 'student' then
         if btype = 'reference' then
+            insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation,
+                                       operation_result)
+            values (uname, b_title, b_volume, b_edition, 'borrow', 'unauthorized');
             return 6;
         end if;
     end if;
 
     if ucredit < (bprice * 5 / 100) then
+        insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+        values (uname, b_title, b_volume, b_edition, 'borrow', 'low credit');
         return 7;
     end if;
 
@@ -515,6 +531,8 @@ begin
       and book_edition = b_edition
       and borrow_return_date is null;
     if not FOUND then
+        insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+        values (uname, b_title, b_volume, b_edition, 'return', 'book does not exists');
         return 3;
     end if;
 
@@ -556,6 +574,14 @@ begin
         update users
         set suspended = CURRENT_DATE + interval '1 month'
         where user_name = new.user_name;
+
+        insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+        values (new.user_name, new.book_title, new.book_volume, new.book_edition, 'return', 'returned with delay');
+    end if;
+
+    if delay_count < 4 then
+        insert into borrow_history(user_name, book_title, book_volume, book_edition, user_operation, operation_result)
+        values (new.user_name, new.book_title, new.book_volume, new.book_edition, 'return', 'success');
     end if;
 
     update storage
@@ -654,5 +680,126 @@ begin
     where token = utoken;
 
     return 0;
+end
+$$;
+
+create or replace function borrow_get_history(
+    utoken varchar(512),
+    u_name varchar(50),
+    b_title VARCHAR(250),
+    b_edition int8 default 1,
+    b_volume int8 default 0
+)
+    returns setof borrow_history
+    language plpgsql
+as
+$$
+declare
+    result borrow_history;
+begin
+    if utoken is null then
+        return;
+    end if;
+
+    perform user_name
+    from users
+    where token = utoken
+      and expires_at >= current_timestamp
+      and (user_type = 'admin'
+        or user_type = 'librarian');
+    if not found then
+        return;
+    end if;
+
+    for result in select *
+                  from borrow_history
+                  where (b_title is null or length(b_title) < 2 or
+                         (book_title = b_title and book_edition = b_edition and book_volume = b_volume))
+                    and (u_name is null or length(u_name) < 6 or user_name = u_name)
+                  order by operation_time
+        loop
+            return next result;
+        end loop;
+    return;
+end
+$$;
+
+create or replace function book_delayed(
+    utoken varchar(512)
+)
+    returns setof borrow_info
+    language plpgsql
+as
+$$
+declare
+    result borrow_info;
+begin
+    if utoken is null then
+        return;
+    end if;
+
+    perform user_name
+    from users
+    where token = utoken
+      and expires_at >= current_timestamp
+      and (user_type = 'admin'
+        or user_type = 'librarian');
+    if not found then
+        return;
+    end if;
+
+    for result in select user_name,
+                         first_name,
+                         last_name,
+                         user_type,
+                         borrow_date,
+                         (borrow.borrow_date + (borrow_duration || ' day')::interval)
+                  from borrow
+                           natural join users
+                  where ((borrow.borrow_date + (borrow_duration || ' day')::interval) < current_date)
+                    and borrow.borrow_return_date is null
+                  order by (borrow.borrow_date + (borrow_duration || ' day')::interval - current_date) desc
+        loop
+            return next result;
+        end loop;
+    return;
+end
+$$;
+
+create or replace function user_family_search(
+    utoken varchar(512),
+    l_name VARCHAR(100),
+    page int
+)
+    returns setof user_info
+    language plpgsql
+as
+$$
+declare
+    result user_info;
+begin
+    if utoken is null or l_name is null then
+        return;
+    end if;
+
+    perform user_name
+    from users
+    where token = utoken
+      and expires_at >= current_timestamp
+      and (user_type = 'admin'
+        or user_type = 'librarian');
+    if not found then
+        return;
+    end if;
+
+    for result in select user_name, first_name, address, credit, user_type, created_at
+                  from users
+                  where lower(last_name) = lower(l_name)
+                  order by first_name
+                  limit 5 offset (page - 1) * 5
+        loop
+            return next result;
+        end loop;
+    return;
 end
 $$;
