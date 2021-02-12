@@ -23,7 +23,8 @@ public class User {
                 11) Increase credit
                 12) Get borrow history
                 13) Get delayed books
-                14) Family search""");
+                14) Family search
+                15) Insert book author""");
 
         return in.nextInt();
     }
@@ -42,7 +43,8 @@ public class User {
                 10) Search borrow
                 11) Get borrow history
                 12) Get delayed books
-                13) Family search""");
+                13) Family search
+                14) Insert book author""");
 
         return in.nextInt();
     }
@@ -134,13 +136,13 @@ public class User {
             call.setString(2, token);
             call.setString(3, inputs[0]);
             call.setString(4, inputs[1]);
-            call.setInt(5, Integer.parseInt(inputs[3]));
-            call.setInt(6, Integer.parseInt(inputs[4]));
-            call.setString(7, inputs[5]);
-            call.setDate(8, Date.valueOf(inputs[6]));
-            call.setInt(9, Integer.parseInt(inputs[7]));
-            call.setInt(10, Integer.parseInt(inputs[8]));
-            call.setInt(11, Integer.parseInt(inputs[9]));
+            call.setInt(5, Integer.parseInt(inputs[2]));
+            call.setInt(6, Integer.parseInt(inputs[3]));
+            call.setString(7, inputs[4]);
+            call.setString(8, inputs[5]);
+            call.setInt(9, Integer.parseInt(inputs[6]));
+            call.setInt(10, Integer.parseInt(inputs[7]));
+            call.setInt(11, Integer.parseInt(inputs[8]));
             call.execute();
 
             switch (call.getInt(1)) {
@@ -148,6 +150,39 @@ public class User {
                 case 2 -> System.out.println("unauthorized");
                 case 3 -> System.out.println("book already exists");
                 default -> System.out.println("book successfully added");
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    private String[] getInsertBookAuthorInputs() {
+        String[] inputs = new String[4];
+
+        System.out.println("please enter title, edition, volume and author:");
+        in.nextLine();
+        for (int i = 0; i < 4; i++) {
+            inputs[i] = in.nextLine().trim();
+        }
+
+        return inputs;
+    }
+
+    private void insertBookAuthor(String[] inputs) {
+        try (CallableStatement call = conn.prepareCall("{ call book_author_insert( ?, ?, ?, ?, ?, ? ) }")) {
+            call.registerOutParameter(1, Types.INTEGER);
+            call.setString(2, token);
+            call.setString(3, inputs[3]);
+            call.setString(4, inputs[0]);
+            call.setInt(5, Integer.parseInt(inputs[1]));
+            call.setInt(6, Integer.parseInt(inputs[2]));
+            call.execute();
+
+            switch (call.getInt(1)) {
+                case 1 -> System.out.println("you should fill all fields");
+                case 2 -> System.out.println("unauthorized");
+                case 3 -> System.out.println("book author already exists");
+                default -> System.out.println("book author successfully added");
             }
         } catch (SQLException throwables) {
             throwables.printStackTrace();
@@ -547,6 +582,10 @@ public class User {
                 case 14:
                     getUserByFamily();
                     break;
+                case 15:
+                    inputs = getInsertBookAuthorInputs();
+                    insertBookAuthor(inputs);
+                    break;
                 default:
                     return;
             }
@@ -605,6 +644,10 @@ public class User {
                     break;
                 case 13:
                     getUserByFamily();
+                    break;
+                case 14:
+                    inputs = getInsertBookAuthorInputs();
+                    insertBookAuthor(inputs);
                     break;
                 default:
                     return;
