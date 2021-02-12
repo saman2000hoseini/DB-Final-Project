@@ -1,4 +1,4 @@
-create database library;
+-- create database library;
 --
 -- drop table *;
 -- drop type u_type;
@@ -89,15 +89,20 @@ CREATE TABLE borrow
 
 create type u_operation as ENUM ('borrow', 'return');
 
-create type o_result as ENUM ('success', 'returned with delay', 'book not available', 'low credit', 'book does not exists');
+create type o_result as ENUM ('success', 'returned with delay', 'unauthorized', 'book not available', 'low credit', 'book does not exists');
 
-create table operation_history
+create table borrow_history
 (
     id               bigint generated always as identity primary key,
-    user_name        varchar(50) not null,
-    user_operation   u_operation not null,
-    operation_result o_result    not null,
+    user_name        varchar(50)  not null,
+    book_title       varchar(250) NOT NULL,
+    book_volume      int8      DEFAULT 0,
+    book_edition     int8      DEFAULT 1,
+    user_operation   u_operation  not null,
+    operation_result o_result     not null,
     operation_time   timestamp default current_timestamp,
+    FOREIGN KEY (book_title, book_volume, book_edition)
+        REFERENCES Book (book_title, book_volume, book_edition),
     foreign key (user_name) references users (user_name)
         ON DELETE CASCADE
 )
