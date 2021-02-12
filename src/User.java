@@ -10,6 +10,8 @@ public class User {
 
     private int printAdminMenu() {
         System.out.println("""
+                -----------------------------------------
+                
                 1) Get info
                 2) Search book
                 3) Insert book
@@ -31,6 +33,8 @@ public class User {
 
     private int printLibrarianMenu() {
         System.out.println("""
+                -----------------------------------------
+                
                 1) Get info
                 2) Search book
                 3) Insert book
@@ -51,6 +55,8 @@ public class User {
 
     private int printUserMenu() {
         System.out.println("""
+                -----------------------------------------
+                
                 1) Get info
                 2) Search book
                 3) Increase credit
