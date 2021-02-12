@@ -6,7 +6,7 @@ public class User {
     private String token;
     private final String userType;
     private final Scanner in;
-    private Connection conn;
+    private final Connection conn;
 
     private int printAdminMenu() {
         System.out.println("""
@@ -20,7 +20,10 @@ public class User {
                 8) Borrow book
                 9) Return book
                 10) Search borrow
-                11) Increase credit""");
+                11) Increase credit
+                12) Get borrow history
+                13) Get delayed books
+                14) Family search""");
 
         return in.nextInt();
     }
@@ -36,7 +39,10 @@ public class User {
                 7) Update storage
                 8) Borrow book
                 9) Return book
-                10) Search borrow""");
+                10) Search borrow
+                11) Get borrow history
+                12) Get delayed books
+                13) Family search""");
 
         return in.nextInt();
     }
@@ -350,7 +356,7 @@ public class User {
                 System.out.println("Lastname: " + resultSet.getString(3));
                 System.out.println("Usertype: " + resultSet.getString(4));
                 System.out.println("Borrow date: " + resultSet.getObject(5).toString());
-                Object returnDate = resultSet.getObject(5);
+                Object returnDate = resultSet.getObject(6);
                 if (returnDate != null)
                     System.out.println("Return date: " + returnDate.toString());
                 else
@@ -376,6 +382,93 @@ public class User {
                 case 2 -> System.out.println("unauthorized");
                 case 3 -> System.out.println("amount should be positive");
                 default -> System.out.println("your credit successfully increased");
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    private String[] getBorrowHistoryInputs() {
+        String[] inputs = new String[4];
+
+        System.out.println("please enter username, title, edition and volume:");
+        in.nextLine();
+        for (int i = 0; i < 4; i++) {
+            inputs[i] = in.nextLine().trim();
+        }
+
+        return inputs;
+    }
+
+    private void getBorrowHistory(String[] inputs) {
+        try (CallableStatement call = conn.prepareCall("{ call borrow_get_history( ?, ?, ?, ?, ? ) }")) {
+            call.setString(1, token);
+            call.setString(2, inputs[0]);
+            call.setString(3, inputs[1]);
+            if (inputs[2].equals(""))
+                call.setObject(4, null);
+            else
+                call.setInt(4, Integer.parseInt(inputs[2]));
+            if (inputs[3].equals(""))
+                call.setObject(5, null);
+            else
+                call.setInt(5, Integer.parseInt(inputs[3]));
+
+            ResultSet resultSet = call.executeQuery();
+            while (resultSet.next()) {
+                System.out.println("-----------------------------------------");
+                System.out.println("ID: " + resultSet.getInt(1));
+                System.out.println("Username: " + resultSet.getString(2));
+                System.out.println("Book title: " + resultSet.getString(3));
+                System.out.println("Book volume: " + resultSet.getInt(4));
+                System.out.println("Book edition: " + resultSet.getString(5));
+                System.out.println("Operation: " + resultSet.getString(6));
+                System.out.println("Result: " + resultSet.getString(7));
+                System.out.println("Operation date: " + resultSet.getObject(8).toString());
+            }
+            System.out.println();
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    private void getDelayedBooks() {
+        try (CallableStatement call = conn.prepareCall("{ call book_delayed( ? ) }")) {
+            call.setString(1, token);
+            ResultSet resultSet = call.executeQuery();
+            while (resultSet.next()) {
+                System.out.println("-----------------------------------------");
+                System.out.println("Username: " + resultSet.getString(1));
+                System.out.println("Firstname: " + resultSet.getString(2));
+                System.out.println("Lastname: " + resultSet.getString(3));
+                System.out.println("Usertype: " + resultSet.getString(4));
+                System.out.println("Borrow date: " + resultSet.getObject(5).toString());
+                System.out.println("Expected return date: " + resultSet.getObject(6).toString());
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    private void getUserByFamily() {
+        System.out.println("please enter a family name and page: ");
+        in.nextLine();
+        String lname = in.nextLine().trim();
+        int page = in.nextInt();
+
+        try (CallableStatement call = conn.prepareCall("{ call user_family_search( ?, ?, ? ) }")) {
+            call.setString(1, token);
+            call.setString(2, lname);
+            call.setInt(3, page);
+            ResultSet resultSet = call.executeQuery();
+            while (resultSet.next()) {
+                System.out.println("-----------------------------------------");
+                System.out.println("Username: " + resultSet.getString(1));
+                System.out.println("Firstname: " + resultSet.getString(2));
+                System.out.println("Address: " + resultSet.getString(3));
+                System.out.println("Credit: " + resultSet.getInt(4));
+                System.out.println("Usertype: " + resultSet.getString(5));
+                System.out.println("Registration: " + resultSet.getObject(6).toString());
             }
         } catch (SQLException throwables) {
             throwables.printStackTrace();
@@ -444,6 +537,16 @@ public class User {
                 case 11:
                     addCredit();
                     break;
+                case 12:
+                    inputs = getBorrowHistoryInputs();
+                    getBorrowHistory(inputs);
+                    break;
+                case 13:
+                    getDelayedBooks();
+                    break;
+                case 14:
+                    getUserByFamily();
+                    break;
                 default:
                     return;
             }
@@ -493,6 +596,16 @@ public class User {
                     inputs = getBorrowBookInputs();
                     searchBorrows(inputs);
                     break;
+                case 11:
+                    inputs = getBorrowHistoryInputs();
+                    getBorrowHistory(inputs);
+                    break;
+                case 12:
+                    getDelayedBooks();
+                    break;
+                case 13:
+                    getUserByFamily();
+                    break;
                 default:
                     return;
             }
@@ -527,21 +640,5 @@ public class User {
                     return;
             }
         }
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
     }
 }
